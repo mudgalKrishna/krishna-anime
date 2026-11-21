@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dreamfall · Krishna Mudgal, AI Researcher</title>
+<meta name="description" content="A short anime film: a chase, a fall into an AI dreamworld, and waking up as an AI researcher.">
+<meta property="og:image" content="public/poster.jpg">
+<link rel="icon" href="public/pfp.png">
+<link rel="preload" href="src/timeline.json" as="fetch" crossorigin>
+<link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+<main class="card">
+  <div class="screen">
+    <canvas id="film" aria-label="Animated short: Krishna runs from a shadow, falls off a cliff into an AI dreamworld, wakes up and reads a paper titled KRISHNA MUDGAL, AI RESEARCHER"></canvas>
+    <div class="grain" aria-hidden="true"></div>
+  </div>
+  <div class="track"><div id="progress"></div></div>
+  <footer class="caption">
+    <span class="name">KRISHNA MUDGAL <em>AI RESEARCHER</em></span>
+    <span class="controls">
+      <button id="sound" aria-pressed="false">sound off</button>
+      <button id="replay">replay ↻</button>
+      <span class="ep" lang="ja">ep.01 夢落ち</span>
+    </span>
+  </footer>
+</main>
+<script src="src/player.js"></script>
+</body>
+</html>
