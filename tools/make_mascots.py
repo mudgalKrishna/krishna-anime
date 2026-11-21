@@ -319,7 +319,7 @@ def lure(w=420, h=112, x=320):
         f'<ellipse class="fl atk" cx="-32" cy="-36" rx="12" ry="9" fill="url(#flameE)" style="animation-delay:-{d}s"/>'
         for d in [0, .15, .3, .45, .6, .75])
     core = "".join(
-        f'<ellipse class="fl atk" cx="-32" cy="-36" rx="5" ry="4" fill="url(#flame)" style="animation-delay:-{d}s;animation-duration:.6s"/>'
+        f'<ellipse class="fl atk" cx="-32" cy="-36" rx="5" ry="4" fill="url(#flame)" style="animation-delay:-{d}s"/>'
         for d in [0, .2, .4])
     embers = "".join(
         f'<rect class="em atk" x="-34" y="-38" width="2.4" height="2.4" fill="{c}" style="--dx:{dx}px;--dy:{dy}px;animation-delay:-{dl}s"/>'
@@ -400,8 +400,75 @@ def bimo(w=420, h=112, x=320):
                 ("BIMO", "steel", "#cfc8ee", 12, "VOLT SHOCK"))
 
 
+# ------------------------------------------------------------ auto-play
+# GitHub READMEs render these as <img>, which never receives hover. So each
+# move also fires on its own once per cycle: every attack keyframe set is
+# squeezed into a short window (repeated r times) and holds its start state
+# for the rest of the cycle. Hover rules are more specific and take over.
+import re
+
+AUTO_T = 7.0
+AUTO = {
+    "paper": (0.3, [("charge", "chg", 1.6, "ease-in-out", 1), ("beam", "beam", 1.6, "ease-out", 1),
+                    ("ring", "ring", 1.6, "ease-out", 1), ("shard", "shard", 1.6, "ease-out", 1),
+                    ("fox", "recoil", 1.6, "ease-out", 1)]),
+    "humble": (2.0, [("jet", "jet", 1.4, "ease-out", 1), ("flow", "flowv", 1.4, "ease-out", 1, "flow .35s linear infinite"),
+                     ("spl", "spl", 1.4, "ease-out", 1), ("splr", "splr", 1.4, "ease-out", 1),
+                     ("drip", "drip", 1.4, "ease-in", 1), ("head", "hdj", 1.4, "ease-in-out", 1)]),
+    "riptide": (3.7, [("fl", "fl", .9, "ease-in", 3), ("em", "em", 1.1, "ease-out", 2)]),
+    "vla": (5.3, [("b1", "b1", .5, "steps(1)", 4), ("b2", "b2", .5, "steps(1)", 4), ("arc", "b1", .5, "steps(1)", 4),
+                  ("zap", "zap", .5, "steps(1)", 4), ("bolt-hit", "bh", .5, "ease-out", 4)]),
+}
+
+
+def keyframes(css, name):
+    i = css.index("@keyframes " + name + "{") + len("@keyframes " + name + "{")
+    out, depth, j = [], 0, i
+    sel_start = i
+    while True:
+        c = css[j]
+        if c == "{":
+            if depth == 0:
+                sel = css[sel_start:j]
+                blk_start = j + 1
+            depth += 1
+        elif c == "}":
+            if depth == 0:
+                return out
+            depth -= 1
+            if depth == 0:
+                out.append(([float(t.strip().rstrip("%").replace("from", "0").replace("to", "100")) for t in sel.split(",")], css[blk_start:j]))
+                sel_start = j + 1
+        j += 1
+
+
+def auto(svg, off, specs):
+    css = svg[svg.index("<style>") + 7:svg.index("</style>")]
+    add, seen = [], set()
+    for spec in specs:
+        cls, name, dur, ease, reps = spec[:5]
+        extra = spec[5] if len(spec) > 5 else None
+        win = dur * reps / AUTO_T
+        o = off / AUTO_T
+        if name not in seen:
+            seen.add(name)
+            frames = keyframes(css, name)
+            start = next(b for ps, b in frames if 0 in ps)
+            kf = [f"0%,{o * 100:.3f}%{{{start}}}"] if o > 0 else []
+            for r in range(reps):
+                for ps, b in frames:
+                    q = ",".join(f"{(o + (r + p / 100) * win / reps) * 100:.3f}%" for p in ps)
+                    kf.append(f"{q}{{{b}}}")
+            kf.append(f"{(o + win) * 100 + .001:.3f}%,100%{{{start}}}")
+            add.append(f"@keyframes {name}-a{{{''.join(kf)}}}")
+        anim = f"{name}-a {AUTO_T}s {ease} infinite"
+        add.append(f".{cls}{{animation:{(extra + ',') if extra else ''}{anim}}}")
+    # base rules must come before the svg:hover rules so hover wins on ties
+    return svg.replace("<style>", "<style>" + "".join(add), 1)
+
+
 if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
     for name, fn in [("paper", mirra), ("humble", humbo), ("riptide", lure), ("vla", bimo)]:
-        (OUT / f"mascot-{name}.svg").write_text(fn(), encoding="utf-8")
+        (OUT / f"mascot-{name}.svg").write_text(auto(fn(), *AUTO[name]), encoding="utf-8")
         print(name, (OUT / f"mascot-{name}.svg").stat().st_size)
